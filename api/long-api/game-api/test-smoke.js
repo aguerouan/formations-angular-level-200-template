@@ -89,13 +89,12 @@ test('Schema formatter produces string output', () => {
       {
         table_name: 'users',
         table_type: 'BASE TABLE',
-        size: '16 kB',
         columns: [
           {
             column_name: 'id',
             data_type: 'integer',
             is_nullable: 'NO',
-            column_default: 'nextval(\'users_id_seq\'::regclass)'
+            column_default: "nextval('users_id_seq'::regclass)"
           },
           {
             column_name: 'username',
@@ -111,13 +110,12 @@ test('Schema formatter produces string output', () => {
       {
         table_name: 'orders',
         table_type: 'BASE TABLE',
-        size: '8 kB',
         columns: [
           {
             column_name: 'id',
             data_type: 'integer',
             is_nullable: 'NO',
-            column_default: 'nextval(\'orders_id_seq\'::regclass)'
+            column_default: "nextval('orders_id_seq'::regclass)"
           },
           {
             column_name: 'user_id',

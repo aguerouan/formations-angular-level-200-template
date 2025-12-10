@@ -15,8 +15,7 @@ async function getAllTables() {
   const query = `
     SELECT 
       table_name,
-      table_type,
-      (SELECT pg_size_pretty(pg_total_relation_size(quote_ident(table_name)))) as size
+      table_type
     FROM information_schema.tables
     WHERE table_schema = 'public'
     ORDER BY table_name;
@@ -38,6 +37,11 @@ async function getAllTables() {
  */
 async function getTableDetails(tableName) {
   try {
+    // Validate table name - only allow alphanumeric and underscore
+    if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+      throw new Error('Invalid table name format');
+    }
+    
     // Get column information
     const columnsQuery = `
       SELECT 
@@ -51,12 +55,16 @@ async function getTableDetails(tableName) {
       ORDER BY ordinal_position;
     `;
     
-    // Get primary key information
+    // Get primary key information using information_schema
     const primaryKeyQuery = `
-      SELECT a.attname as column_name
-      FROM pg_index i
-      JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-      WHERE i.indrelid = $1::regclass AND i.indisprimary;
+      SELECT kcu.column_name
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu 
+        ON tc.constraint_name = kcu.constraint_name
+        AND tc.table_schema = kcu.table_schema
+      WHERE tc.constraint_type = 'PRIMARY KEY'
+        AND tc.table_schema = 'public'
+        AND tc.table_name = $1;
     `;
     
     // Get foreign key information
@@ -211,7 +219,6 @@ function formatSchemaForAI(schema) {
   description += `Tables:\n`;
   schema.tables.forEach(table => {
     description += `\n- ${table.table_name} (${table.table_type})\n`;
-    description += `  Size: ${table.size || 'N/A'}\n`;
     
     if (table.primaryKeys && table.primaryKeys.length > 0) {
       description += `  Primary Key: ${table.primaryKeys.join(', ')}\n`;

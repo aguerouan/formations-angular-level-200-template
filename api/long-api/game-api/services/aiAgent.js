@@ -202,7 +202,10 @@ Only generate queries that are safe to execute (no DROP, DELETE, UPDATE unless e
       messages: [
         {
           role: 'user',
-          content: `Generate a SQL query for: ${naturalLanguageQuery}`
+          content: `Generate a SQL query for: ${naturalLanguageQuery}
+
+IMPORTANT: Respond with ONLY valid JSON in this exact format, no markdown formatting:
+{"sql": "SELECT ...", "explanation": "...", "warnings": []}`
         }
       ],
       system: systemPrompt
@@ -212,11 +215,22 @@ Only generate queries that are safe to execute (no DROP, DELETE, UPDATE unless e
     
     // Try to parse JSON response
     try {
-      // Extract JSON from potential markdown code blocks
-      const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/) || 
-                       responseText.match(/```\n([\s\S]*?)\n```/);
-      const jsonText = jsonMatch ? jsonMatch[1] : responseText;
-      const parsed = JSON.parse(jsonText);
+      // First try direct parsing
+      let parsed;
+      try {
+        parsed = JSON.parse(responseText);
+      } catch (directParseError) {
+        // If that fails, try to extract from markdown code blocks
+        const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/) || 
+                         responseText.match(/```\n([\s\S]*?)\n```/) ||
+                         responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const jsonText = jsonMatch[1] || jsonMatch[0];
+          parsed = JSON.parse(jsonText);
+        } else {
+          throw new Error('Could not extract JSON from response');
+        }
+      }
       
       return {
         success: true,
@@ -228,10 +242,12 @@ Only generate queries that are safe to execute (no DROP, DELETE, UPDATE unless e
       };
     } catch (parseError) {
       // If parsing fails, return the raw response
+      console.warn('Failed to parse JSON from Claude response:', parseError);
       return {
         success: true,
         sql: null,
         explanation: responseText,
+        warning: 'Response was not in expected JSON format',
         usage: {
           inputTokens: message.usage.input_tokens,
           outputTokens: message.usage.output_tokens
